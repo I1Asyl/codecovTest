@@ -1802,23 +1802,4 @@ else
   say "    ${e}url:${x} $url"
   say "    ${e}query:${x} $query"
 
-curl -Os https://cli.codecov.io/v0.4.4/linux/codecov
-sudo chmod +x codecov
-
-result=$(./codecov --verbose upload-process --disable-search --fail-on-error \
-    -t ${CODECOV_TOKEN} \
-    -n 'service'-${RUN_ID} \
-    -F service \
-    -f coverage-service.xml 2>&1)  # Capture both stdout and stderr
-
-# Check if the command was successful
-if [ $? -ne 0 ]; then
-    # If there is an error (non-zero exit code), output the result
-    echo "Error: Codecov upload failed."
-    echo "Details: $result"
-    exit 1  # Exit with an error code
-else
-    # If the command was successful, print the result
-    echo "Codecov upload succeeded."
-    echo "Details: $result"
-fi
+ls .
