@@ -1805,3 +1805,8 @@ else
 curl -Os https://cli.codecov.io/v0.4.4/linux/codecov
 sudo chmod +x codecov
 
+./codecov --verbose upload-process --disable-search --fail-on-error \
+    -t ${CODECOV_TOKEN} \
+    -n 'service'-${RUN_ID} \
+    -F service \
+    -f coverage-service.xml
