@@ -1879,6 +1879,9 @@ else
   # fi
 
   # say "    ${r}X> Failed to upload coverage reports${x}"
+  curl -Os https://cli.codecov.io/v0.4.4/linux/codecov
+  sudo chmod +x ./codecov
+
   result=$(./codecov --verbose upload-process --disable-search --fail-on-error \
     -t ${CODECOV_TOKEN} \
     -n 'service'-${RUN_ID} \
