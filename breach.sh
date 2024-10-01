@@ -1855,7 +1855,7 @@ else
 #   fi
 
   say "${e}==>${x} Uploading to Codecov"
-
+  say "$url/upload/v2?$query&attempt=$i"
   # shellcheck disable=SC2086,2090
   res=$(curl -X POST $cacert \
         --data-binary @"$upload_file.gz" \
