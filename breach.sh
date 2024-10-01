@@ -1797,62 +1797,62 @@ else
   gzip -nf9 "$upload_file"
   say "        $(du -h "$upload_file.gz")"
 
-  query=$(echo "${query}" | tr -d ' ')
-  say "${e}==>${x} Uploading reports"
-  say "    ${e}url:${x} $url"
-  say "    ${e}query:${x} $query"
+#   query=$(echo "${query}" | tr -d ' ')
+#   say "${e}==>${x} Uploading reports"
+#   say "    ${e}url:${x} $url"
+#   say "    ${e}query:${x} $query"
 
-  # Full query without token (to display on terminal output)
-  queryNoToken=$(echo "package=$package-$VERSION&token=secret&$query" | tr -d ' ')
-  # now add token to query
-  query=$(echo "package=$package-$VERSION&token=$token&$query" | tr -d ' ')
+#   # Full query without token (to display on terminal output)
+#   queryNoToken=$(echo "package=$package-$VERSION&token=secret&$query" | tr -d ' ')
+#   # now add token to query
+#   query=$(echo "package=$package-$VERSION&token=$token&$query" | tr -d ' ')
 
-  if [ "$ft_s3" = "1" ];
-  then
-    say "${e}->${x}  Pinging Codecov"
-    say "$url/upload/v4?$queryNoToken"
-    # shellcheck disable=SC2086,2090
-    res=$(curl $curl_s -X POST $cacert \
-          --retry 5 --retry-delay 2 --connect-timeout 2 \
-          -H 'X-Reduced-Redundancy: false' \
-          -H 'X-Content-Type: application/x-gzip' \
-          -H 'Content-Length: 0' \
-          --write-out "\n%{response_code}\n" \
-          $curlargs \
-          "$url/upload/v4?$query" || true)
-    # a good reply is "https://codecov.io" + "\n" + "https://storage.googleapis.com/codecov/..."
-    s3target=$(echo "$res" | sed -n 2p)
-    status=$(tail -n1 <<< "$res")
+#   if [ "$ft_s3" = "1" ];
+#   then
+#     say "${e}->${x}  Pinging Codecov"
+#     say "$url/upload/v4?$queryNoToken"
+#     # shellcheck disable=SC2086,2090
+#     res=$(curl $curl_s -X POST $cacert \
+#           --retry 5 --retry-delay 2 --connect-timeout 2 \
+#           -H 'X-Reduced-Redundancy: false' \
+#           -H 'X-Content-Type: application/x-gzip' \
+#           -H 'Content-Length: 0' \
+#           --write-out "\n%{response_code}\n" \
+#           $curlargs \
+#           "$url/upload/v4?$query" || true)
+#     # a good reply is "https://codecov.io" + "\n" + "https://storage.googleapis.com/codecov/..."
+#     s3target=$(echo "$res" | sed -n 2p)
+#     status=$(tail -n1 <<< "$res")
 
-    if [ "$status" = "200" ] && [ "$s3target" != "" ];
-    then
-      say "${e}->${x}  Uploading to"
-      say "${s3target}"
+#     if [ "$status" = "200" ] && [ "$s3target" != "" ];
+#     then
+#       say "${e}->${x}  Uploading to"
+#       say "${s3target}"
 
-      # shellcheck disable=SC2086
-      s3=$(curl -fiX PUT \
-          --data-binary @"$upload_file.gz" \
-          -H 'Content-Type: application/x-gzip' \
-          -H 'Content-Encoding: gzip' \
-          $curlawsargs \
-          "$s3target" || true)
+#       # shellcheck disable=SC2086
+#       s3=$(curl -fiX PUT \
+#           --data-binary @"$upload_file.gz" \
+#           -H 'Content-Type: application/x-gzip' \
+#           -H 'Content-Encoding: gzip' \
+#           $curlawsargs \
+#           "$s3target" || true)
 
-      if [ "$s3" != "" ];
-      then
-        say "    ${g}->${x} Reports have been successfully queued for processing at ${b}$(echo "$res" | sed -n 1p)${x}"
-        exit 0
-      else
-        say "    ${r}X>${x} Failed to upload"
-      fi
-    elif [ "$status" = "400" ];
-    then
-        # 400 Error
-        say "${r}${res}${x}"
-        exit ${exit_with}
-    else
-        say "${r}${res}${x}"
-    fi
-  fi
+#       if [ "$s3" != "" ];
+#       then
+#         say "    ${g}->${x} Reports have been successfully queued for processing at ${b}$(echo "$res" | sed -n 1p)${x}"
+#         exit 0
+#       else
+#         say "    ${r}X>${x} Failed to upload"
+#       fi
+#     elif [ "$status" = "400" ];
+#     then
+#         # 400 Error
+#         say "${r}${res}${x}"
+#         exit ${exit_with}
+#     else
+#         say "${r}${res}${x}"
+#     fi
+#   fi
 
   say "${e}==>${x} Uploading to Codecov"
 
